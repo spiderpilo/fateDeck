@@ -1,0 +1,76 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  min-width: 100%;
+  min-height: 100vh;
+  background: #03131d;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+#root {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.reveal-row {
+  width: 100%;
+  max-width: 1400px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: clamp(18px, 3vw, 40px);
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.deal-card {
+  opacity: 0;
+  transform: translateY(-260px) scale(0.85) rotate(-8deg);
+  animation: dealFromTop 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.deal-delay-1 {
+  animation-delay: 0.1s;
+}
+
+.deal-delay-2 {
+  animation-delay: 0.35s;
+}
+
+.deal-delay-3 {
+  animation-delay: 0.6s;
+}
+
+@keyframes dealFromTop {
+  0% {
+    opacity: 0;
+    transform: translateY(-260px) scale(0.85) rotate(-8deg);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translateY(14px) scale(1.02) rotate(2deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
