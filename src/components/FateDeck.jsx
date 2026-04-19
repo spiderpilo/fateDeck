@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import cardBack from "../assets/card-back.png";
 import tarotCards from "../data/tarotCards";
 import zodiacProfiles from "../data/zodiacProfiles";
 import { drawCards } from "../utils/drawCards";
@@ -16,12 +17,16 @@ function FateDeck() {
   const [savedReadings, setSavedReadings] = useState([]);
   const [saveMessage, setSaveMessage] = useState("");
   const [selectedDeckCard, setSelectedDeckCard] = useState(null);
+  const [flippedCards, setFlippedCards] = useState([]);
+  const [showCardsClicked, setShowCardsClicked] = useState(false);
+  const [curtainActive, setCurtainActive] = useState(false);
 
   const [transitioning, setTransitioning] = useState(false);
   const [pendingScreen, setPendingScreen] = useState(null);
   const [transitionSrc, setTransitionSrc] = useState("/videos/transition1.mp4");
   const [transitionKey, setTransitionKey] = useState(0);
   const pendingAction = useRef(null);
+  const cardSlideDir = useRef("next");
 
   const navigateTo = (targetScreen) => {
     setTransitionSrc("/videos/transition1.mp4");
@@ -97,6 +102,8 @@ function FateDeck() {
         setAllReadings(readings);
         setCurrentCardIndex(0);
         setReading(readings[0]);
+        setFlippedCards(cards.map(() => false));
+        setShowCardsClicked(false);
         setScreen("reveal");
       } catch (error) {
         console.error(error);
@@ -105,10 +112,30 @@ function FateDeck() {
       }
     };
 
-    setTransitionSrc("/videos/transition2.mp4");
+    const drawTransition = Math.floor(Math.random() * 6) + 2;
+    setTransitionSrc(`/videos/transition${drawTransition}.mp4`);
     setTransitionKey((k) => k + 1);
     setPendingScreen("loading");
     setTransitioning(true);
+  };
+
+  const handleShowCards = () => {
+    setShowCardsClicked(true);
+    drawnCards.forEach((_, i) => {
+      setTimeout(() => {
+        setFlippedCards((prev) => {
+          const next = [...prev];
+          next[i] = true;
+          return next;
+        });
+      }, i * 600);
+    });
+  };
+
+  const handleBeginReading = () => {
+    setCurtainActive(true);
+    setTimeout(() => beginReading(), 320);
+    setTimeout(() => setCurtainActive(false), 700);
   };
 
   const beginReading = () => {
@@ -121,6 +148,7 @@ function FateDeck() {
   const nextCard = () => {
     if (currentCardIndex < drawnCards.length - 1) {
       const next = currentCardIndex + 1;
+      cardSlideDir.current = "next";
       setCurrentCardIndex(next);
       setReading(allReadings[next]);
     }
@@ -129,6 +157,7 @@ function FateDeck() {
   const prevCard = () => {
     if (currentCardIndex > 0) {
       const prev = currentCardIndex - 1;
+      cardSlideDir.current = "prev";
       setCurrentCardIndex(prev);
       setReading(allReadings[prev]);
     }
@@ -241,7 +270,7 @@ function FateDeck() {
                 className="magic-button"
                 style={styles.secondaryButton}
               >
-                Consult the Codex
+                View Deck
               </button>
 
               <button
@@ -441,7 +470,7 @@ function FateDeck() {
           </div>
 
           <h1 style={styles.sectionTitle}>Your Cards</h1>
-          <p style={styles.readingCount}>Zodiac: {selectedZodiac}</p>
+          <p style={styles.readingLabel}>Zodiac: {selectedZodiac}</p>
 
           <div className="reveal-row">
             {drawnCards.map((card, index) => (
@@ -450,16 +479,36 @@ function FateDeck() {
                 className={`deal-card deal-delay-${index + 1}`}
                 style={styles.cardPreview}
               >
-                <img src={card.image} alt={card.name} style={styles.smallCard} />
-                <p style={styles.cardLabel}>{card.name}</p>
+                <div style={styles.cardFlipContainer}>
+                  <div style={{
+                    ...styles.cardFlipInner,
+                    transform: flippedCards[index] ? "rotateY(180deg)" : "rotateY(0deg)",
+                  }}>
+                    <img src={cardBack} alt="Card back" style={styles.cardBackFace} />
+                    <img src={card.image} alt={card.name} style={styles.cardFrontFace} />
+                  </div>
+                </div>
+                <p style={{
+                  ...styles.cardLabel,
+                  opacity: flippedCards[index] ? 1 : 0,
+                  transition: "opacity 0.4s ease 0.3s",
+                }}>
+                  {card.name}
+                </p>
               </div>
             ))}
           </div>
 
           <div style={styles.buttonRow}>
-            <button onClick={beginReading} className="magic-button" style={styles.button}>
-              Begin Reading
-            </button>
+            {!showCardsClicked ? (
+              <button onClick={handleShowCards} className="magic-button" style={styles.button}>
+                Show Cards
+              </button>
+            ) : (
+              <button onClick={handleBeginReading} className="magic-button" style={styles.button}>
+                Begin Reading
+              </button>
+            )}
 
             <button
               onClick={() => setScreen("landing")}
@@ -473,8 +522,9 @@ function FateDeck() {
       )}
 
       {screen === "reading" && currentCard && (
-        <div style={styles.section}>
-          <div style={styles.topNav}>
+        <div style={styles.readingSection}>
+          {/* Header */}
+          <div style={styles.readingHeader}>
             <button
               onClick={() => setScreen("landing")}
               className="magic-button"
@@ -482,83 +532,102 @@ function FateDeck() {
             >
               Return to FateDeck
             </button>
+            <div style={styles.readingHeaderCenter}>
+              <span style={styles.readingHeaderCard}>{currentCard.name}</span>
+              <span style={styles.readingHeaderMeta}>
+                Card {currentCardIndex + 1} of {drawnCards.length} · {selectedZodiac}
+              </span>
+            </div>
+            <div style={{ width: "160px" }} />
           </div>
 
-          <h1 style={styles.sectionTitle}>Reading</h1>
-          <p style={styles.readingCount}>
-            Card {currentCardIndex + 1} of {drawnCards.length}
-          </p>
-          <p style={styles.readingCount}>Zodiac: {selectedZodiac}</p>
-
-          <img src={currentCard.image} alt={currentCard.name} style={styles.largeCard} />
-
-          <h2 style={styles.readingCardTitle}>{currentCard.name}</h2>
-
-          <div style={styles.readingBox}>
-            <p>
-              <strong>Your question:</strong> {question}
-            </p>
-            <p>
-              <strong>Zodiac sign:</strong> {selectedZodiac}
-            </p>
-
-            <div style={styles.zodiacTraitsBox}>
-              <div style={styles.traitsColumn}>
-                <h4 style={styles.traitsHeading}>Zodiac Strengths</h4>
-                <ul style={styles.traitsList}>
-                  {zodiacProfiles[selectedZodiac].strengths.map((trait) => (
-                    <li key={trait}>{trait}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div style={styles.traitsColumn}>
-                <h4 style={styles.traitsHeading}>Zodiac Weaknesses</h4>
-                <ul style={styles.traitsList}>
-                  {zodiacProfiles[selectedZodiac].weaknesses.map((trait) => (
-                    <li key={trait}>{trait}</li>
-                  ))}
-                </ul>
+          {/* Two-panel body — both panels animate together on card change */}
+          <div
+            key={currentCardIndex}
+            style={{
+              ...styles.readingBody,
+              animation: cardSlideDir.current === "prev"
+                ? "slideInLeft 0.35s ease forwards"
+                : "slideInRight 0.35s ease forwards",
+            }}
+          >
+            {/* Left panel: large card image + nav */}
+            <div style={styles.readingLeftPanel}>
+              <img src={currentCard.image} alt={currentCard.name} style={styles.readingCardImg} />
+              <div style={styles.navRow}>
+                <button
+                  onClick={prevCard}
+                  disabled={currentCardIndex === 0}
+                  className="magic-button"
+                  style={styles.navButton}
+                >
+                  ← Prev
+                </button>
+                <button
+                  onClick={nextCard}
+                  disabled={currentCardIndex === drawnCards.length - 1}
+                  className="magic-button"
+                  style={styles.navButton}
+                >
+                  Next →
+                </button>
               </div>
             </div>
 
-            <p>
-              <strong>Card meaning:</strong> {currentCard.meaning}
-            </p>
+            {/* Right panel: all reading info */}
+            <div style={styles.readingRightPanel}>
+              <div style={styles.readingSectionBlock}>
+                <p style={styles.readingLabel}>Your Question</p>
+                <p style={styles.readingBodyText}>{question}</p>
+              </div>
 
-            <div style={styles.aiBlock}>
-              <h3 style={styles.aiHeading}>Personalized Reading</h3>
-              <p>{reading}</p>
+              <div style={styles.readingSectionBlock}>
+                <p style={styles.readingLabel}>Card Meaning</p>
+                <p style={styles.readingBodyText}>{currentCard.meaning}</p>
+              </div>
+
+              <div style={styles.readingAIBlock}>
+                <p style={styles.readingLabel}>Personalized Reading</p>
+                <p style={styles.readingBodyText}>{reading}</p>
+              </div>
+
+              <div style={styles.zodiacGrid}>
+                <div>
+                  <p style={styles.readingLabel}>Strengths</p>
+                  <ul style={styles.zodiacList}>
+                    {zodiacProfiles[selectedZodiac].strengths.map((trait) => (
+                      <li key={trait} style={styles.zodiacTrait}>
+                        <span style={styles.zodiacBullet}>•</span>{trait}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <p style={styles.readingLabel}>Weaknesses</p>
+                  <ul style={styles.zodiacList}>
+                    {zodiacProfiles[selectedZodiac].weaknesses.map((trait) => (
+                      <li key={trait} style={styles.zodiacTrait}>
+                        <span style={styles.zodiacBullet}>•</span>{trait}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              <div style={styles.readingActions}>
+                <button onClick={saveCurrentReading} className="magic-button" style={styles.button}>
+                  Keep This Reading
+                </button>
+                {saveMessage && <p style={styles.saveMessage}>{saveMessage}</p>}
+              </div>
             </div>
-
-            <button onClick={saveCurrentReading} className="magic-button" style={styles.button}>
-              Keep This Reading
-            </button>
-
-            {saveMessage && <p style={styles.saveMessage}>{saveMessage}</p>}
-          </div>
-
-          <div style={styles.navRow}>
-            <button
-              onClick={prevCard}
-              disabled={currentCardIndex === 0}
-              className="magic-button"
-              style={styles.button}
-            >
-              Previous
-            </button>
-
-            <button
-              onClick={nextCard}
-              disabled={currentCardIndex === drawnCards.length - 1}
-              className="magic-button"
-              style={styles.button}
-            >
-              Next
-            </button>
           </div>
         </div>
       )}
+      {curtainActive && (
+        <div style={styles.curtainOverlay} />
+      )}
+
       {transitioning && (
         <div style={styles.transitionOverlay}>
           <video
@@ -584,6 +653,15 @@ const styles = {
     background: "#03131d",
     color: "white",
     textAlign: "center",
+  },
+
+  curtainOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "#03131d",
+    animation: "curtainFade 0.7s ease forwards",
+    zIndex: 9998,
+    pointerEvents: "none",
   },
 
   transitionOverlay: {
@@ -807,6 +885,43 @@ const styles = {
     textAlign: "center",
   },
 
+  cardFlipContainer: {
+    perspective: "1200px",
+    display: "inline-block",
+  },
+
+  cardFlipInner: {
+    position: "relative",
+    transformStyle: "preserve-3d",
+    WebkitTransformStyle: "preserve-3d",
+    transition: "transform 0.7s cubic-bezier(0.4, 0, 0.2, 1)",
+    width: "min(24vw, 280px)",
+    minWidth: "220px",
+  },
+
+  cardBackFace: {
+    display: "block",
+    width: "100%",
+    borderRadius: "16px",
+    boxShadow: "0 18px 48px rgba(0,0,0,.4)",
+    backfaceVisibility: "hidden",
+    WebkitBackfaceVisibility: "hidden",
+  },
+
+  cardFrontFace: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    borderRadius: "16px",
+    boxShadow: "0 18px 48px rgba(0,0,0,.4)",
+    backfaceVisibility: "hidden",
+    WebkitBackfaceVisibility: "hidden",
+    transform: "rotateY(180deg)",
+    objectFit: "cover",
+  },
+
   deckCardButton: {
     background: "transparent",
     border: "none",
@@ -894,65 +1009,158 @@ const styles = {
     marginBottom: "18px",
   },
 
-  readingCount: {
-    fontSize: "1rem",
-    color: "#d8e6ea",
-    marginBottom: "10px",
-  },
-
-  readingCardTitle: {
-    marginTop: "18px",
-    marginBottom: "10px",
-    fontSize: "2rem",
-  },
-
-  readingBox: {
-    maxWidth: "900px",
+  readingSection: {
+    height: "100vh",
     width: "100%",
-    margin: "30px auto",
-    padding: "24px",
-    background: "rgba(255,255,255,0.08)",
-    borderRadius: "16px",
-    lineHeight: "1.7",
-  },
-
-  zodiacTraitsBox: {
+    background: "#03131d",
     display: "flex",
-    gap: "24px",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    margin: "18px 0",
-    textAlign: "left",
+    flexDirection: "column",
+    boxSizing: "border-box",
+    overflow: "hidden",
   },
 
-  traitsColumn: {
-    flex: "1 1 280px",
-    minWidth: "260px",
-    background: "rgba(255,255,255,0.05)",
-    borderRadius: "14px",
-    padding: "16px 18px",
+  readingHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "14px 28px",
+    borderBottom: "1px solid rgba(120,220,255,0.12)",
+    flexShrink: 0,
+    gap: "16px",
   },
 
-  traitsHeading: {
-    marginTop: 0,
-    marginBottom: "10px",
-    fontSize: "1rem",
+  readingHeaderCenter: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "3px",
+  },
+
+  readingHeaderCard: {
+    fontSize: "1.25rem",
+    fontWeight: "600",
+    color: "white",
+    letterSpacing: "0.02em",
+  },
+
+  readingHeaderMeta: {
+    fontSize: "0.78rem",
     color: "#9be7ff",
+    letterSpacing: "0.08em",
   },
 
-  traitsList: {
-    margin: 0,
-    paddingLeft: "20px",
-    lineHeight: "1.8",
+  readingBody: {
+    display: "flex",
+    flex: 1,
+    overflow: "hidden",
+  },
+
+  readingLeftPanel: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "24px",
+    padding: "28px 24px",
+    borderRight: "1px solid rgba(120,220,255,0.12)",
+    background: "rgba(0,0,0,0.12)",
+    overflow: "hidden",
+  },
+
+  readingCardImg: {
+    maxHeight: "calc(100vh - 180px)",
+    maxWidth: "100%",
+    borderRadius: "18px",
+    boxShadow: "0 0 48px rgba(90,220,255,0.2), 0 28px 64px rgba(0,0,0,0.65)",
+    display: "block",
+    objectFit: "contain",
+  },
+
+  readingRightPanel: {
+    flex: 1,
+    overflowY: "auto",
+    padding: "28px 36px",
+    display: "flex",
+    flexDirection: "column",
+    gap: "20px",
+  },
+
+  readingSectionBlock: {
+    paddingBottom: "16px",
+    borderBottom: "1px solid rgba(120,220,255,0.08)",
+  },
+
+  readingLabel: {
+    fontSize: "0.68rem",
+    fontWeight: "700",
+    letterSpacing: "0.16em",
+    textTransform: "uppercase",
+    color: "rgba(155,231,255,0.6)",
+    margin: "0 0 6px",
+  },
+
+  readingBodyText: {
+    fontSize: "0.95rem",
+    lineHeight: "1.75",
     color: "#d8e6ea",
+    margin: 0,
   },
 
-  aiBlock: {
-    marginTop: "18px",
+  readingAIBlock: {
+    background: "rgba(255,255,255,0.04)",
+    borderRadius: "14px",
+    padding: "18px 20px",
+    border: "1px solid rgba(120,220,255,0.08)",
   },
 
-  aiHeading: {
-    marginBottom: "12px",
+  zodiacGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "16px",
+    padding: "16px 0",
+    borderTop: "1px solid rgba(120,220,255,0.08)",
+  },
+
+  zodiacList: {
+    listStyle: "none",
+    padding: 0,
+    margin: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+  },
+
+  zodiacTrait: {
+    fontSize: "0.88rem",
+    color: "#d8e6ea",
+    lineHeight: "1.4",
+    display: "flex",
+    gap: "8px",
+  },
+
+  zodiacBullet: {
+    color: "#9be7ff",
+    flexShrink: 0,
+    fontSize: "0.8rem",
+  },
+
+  readingActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: "16px",
+    flexWrap: "wrap",
+  },
+
+  navButton: {
+    padding: "10px 24px",
+    borderRadius: "12px",
+    border: "1px solid rgba(120,220,255,.45)",
+    background: "rgba(8,30,45,.75)",
+    color: "white",
+    cursor: "pointer",
+    fontSize: "1rem",
+    fontWeight: "600",
   },
 
   navRow: {
