@@ -17,19 +17,31 @@ const client = new OpenAI({
 
 app.post("/api/tarot-reading", async (req, res) => {
   try {
-    const { question, card } = req.body;
+    const { question, card, zodiac, zodiacProfile } = req.body;
 
-    if (!question || !card) {
+    if (!question || !card || !zodiac || !zodiacProfile) {
       return res.status(400).json({
-        error: "Question and card are required.",
+        error: "Question, card, zodiac, and zodiac profile are required.",
       });
     }
 
     const prompt = `
-You are a mystical deep-sea tarot reader.
+You are a mystical deep-sea tarot reader for an entertainment app.
 
-User question:
+The user asked:
 "${question}"
+
+The user's zodiac sign:
+${zodiac}
+
+Zodiac strengths:
+${zodiacProfile.strengths.join(", ")}
+
+Zodiac weaknesses:
+${zodiacProfile.weaknesses.join(", ")}
+
+Recommended advice style:
+${zodiacProfile.adviceStyle}
 
 Tarot card:
 ${card.name}
@@ -37,8 +49,22 @@ ${card.name}
 Card meaning:
 ${card.meaning}
 
-Give a short mystical interpretation connecting the card to the user's question.
-Keep it under 120 words.
+Write a response in 2 short parts:
+
+1. Interpretation:
+Give a mystical, symbolic tarot interpretation connecting the card to the question and zodiac personality.
+
+2. Recommended Action:
+Give a practical but thematic recommendation for what the user should do next.
+Explicitly mention at least one zodiac strength they should lean into and one zodiac weakness they should watch out for.
+
+Rules:
+- Keep the tone immersive and mystical
+- Make it feel personal
+- Keep total response under 170 words
+- Use labels exactly:
+Interpretation:
+Recommended Action:
 `;
 
     const response = await client.responses.create({
@@ -49,10 +75,8 @@ Keep it under 120 words.
     res.json({
       reading: response.output_text,
     });
-
   } catch (error) {
-    console.error(error);
-
+    console.error("Tarot reading error:", error);
     res.status(500).json({
       error: "Failed to generate reading.",
     });

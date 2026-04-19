@@ -1,16 +1,43 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import tarotCards from "../data/tarotCards";
+import zodiacProfiles from "../data/zodiacProfiles";
 import { drawCards } from "../utils/drawCards";
 
 function FateDeck() {
-  const [screen, setScreen] = useState("landing");
+  const zodiacOptions = Object.keys(zodiacProfiles);
+
+  const [screen, setScreen] = useState("welcome");
   const [question, setQuestion] = useState("");
+  const [selectedZodiac, setSelectedZodiac] = useState("Aries");
   const [drawnCards, setDrawnCards] = useState([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [reading, setReading] = useState("");
   const [allReadings, setAllReadings] = useState([]);
   const [savedReadings, setSavedReadings] = useState([]);
   const [saveMessage, setSaveMessage] = useState("");
+  const [selectedDeckCard, setSelectedDeckCard] = useState(null);
+
+  const [transitioning, setTransitioning] = useState(false);
+  const [pendingScreen, setPendingScreen] = useState(null);
+  const [transitionSrc, setTransitionSrc] = useState("/videos/transition1.mp4");
+  const [transitionKey, setTransitionKey] = useState(0);
+  const pendingAction = useRef(null);
+
+  const navigateTo = (targetScreen) => {
+    setTransitionSrc("/videos/transition1.mp4");
+    setTransitionKey((k) => k + 1);
+    setPendingScreen(targetScreen);
+    setTransitioning(true);
+  };
+
+  const handleTransitionEnd = () => {
+    setScreen(pendingScreen);
+    setTransitioning(false);
+    if (pendingAction.current) {
+      pendingAction.current();
+      pendingAction.current = null;
+    }
+  };
 
   useEffect(() => {
     const stored = localStorage.getItem("fatedeck-saved-readings");
@@ -39,6 +66,8 @@ function FateDeck() {
       body: JSON.stringify({
         question,
         card,
+        zodiac: selectedZodiac,
+        zodiacProfile: zodiacProfiles[selectedZodiac],
       }),
     });
 
@@ -51,31 +80,35 @@ function FateDeck() {
     return data.reading;
   };
 
-  const handleDrawCards = async () => {
+  const handleDrawCards = () => {
     if (!question.trim()) return;
 
-    try {
-      const cards = drawCards(tarotCards, 3);
+    const cards = drawCards(tarotCards, 3);
+    setSaveMessage("");
 
-      setSaveMessage("");
-      setScreen("loading");
-
-      const readings = [];
-      for (const card of cards) {
-        const result = await fetchReadingForCard(card);
-        readings.push(result);
+    pendingAction.current = async () => {
+      try {
+        const readings = [];
+        for (const card of cards) {
+          const result = await fetchReadingForCard(card);
+          readings.push(result);
+        }
+        setDrawnCards(cards);
+        setAllReadings(readings);
+        setCurrentCardIndex(0);
+        setReading(readings[0]);
+        setScreen("reveal");
+      } catch (error) {
+        console.error(error);
+        setScreen("landing");
+        alert("The sea is silent right now. Please try again.");
       }
+    };
 
-      setDrawnCards(cards);
-      setAllReadings(readings);
-      setCurrentCardIndex(0);
-      setReading(readings[0]);
-      setScreen("reveal");
-    } catch (error) {
-      console.error(error);
-      setScreen("landing");
-      alert("The sea is silent right now. Please try again.");
-    }
+    setTransitionSrc("/videos/transition2.mp4");
+    setTransitionKey((k) => k + 1);
+    setPendingScreen("loading");
+    setTransitioning(true);
   };
 
   const beginReading = () => {
@@ -107,6 +140,7 @@ function FateDeck() {
     const entry = {
       id: Date.now(),
       question,
+      zodiac: selectedZodiac,
       cards: drawnCards,
       readings: allReadings,
       createdAt: new Date().toLocaleString(),
@@ -118,6 +152,7 @@ function FateDeck() {
 
   const openSavedReading = (entry) => {
     setQuestion(entry.question);
+    setSelectedZodiac(entry.zodiac || "Aries");
     setDrawnCards(entry.cards);
     setAllReadings(entry.readings);
     setCurrentCardIndex(0);
@@ -130,10 +165,41 @@ function FateDeck() {
     setSavedReadings((prev) => prev.filter((entry) => entry.id !== id));
   };
 
+  const openDeckCard = (card) => {
+    setSelectedDeckCard(card);
+  };
+
+  const closeDeckCard = () => {
+    setSelectedDeckCard(null);
+  };
+
   const currentCard = drawnCards[currentCardIndex];
 
   return (
     <div style={styles.page}>
+      {screen === "welcome" && (
+        <div style={styles.landingPage}>
+          <video autoPlay muted loop playsInline style={styles.videoBackground}>
+            <source src="/videos/fatedeck-bg.mp4" type="video/mp4" />
+          </video>
+
+          <div style={styles.welcomeOverlay} />
+
+          <div style={styles.welcomeContent}>
+            <span style={styles.welcomeSymbol}>✦</span>
+            <h1 style={styles.welcomeTitle}>FateDeck</h1>
+            <p style={styles.welcomeSubtitle}>The deep sea holds your fate.</p>
+            <button
+              onClick={() => navigateTo("landing")}
+              className="magic-button"
+              style={styles.welcomeButton}
+            >
+              Begin
+            </button>
+          </div>
+        </div>
+      )}
+
       {screen === "landing" && (
         <div style={styles.landingPage}>
           <video autoPlay muted loop playsInline style={styles.videoBackground}>
@@ -143,6 +209,18 @@ function FateDeck() {
           <div style={styles.videoOverlay} />
 
           <div style={styles.bottomUi}>
+            <select
+              value={selectedZodiac}
+              onChange={(e) => setSelectedZodiac(e.target.value)}
+              style={styles.select}
+            >
+              {zodiacOptions.map((sign) => (
+                <option key={sign} value={sign}>
+                  {sign}
+                </option>
+              ))}
+            </select>
+
             <input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
@@ -156,7 +234,10 @@ function FateDeck() {
               </button>
 
               <button
-                onClick={() => setScreen("deck")}
+                onClick={() => {
+                  setSelectedDeckCard(null);
+                  setScreen("deck");
+                }}
                 className="magic-button"
                 style={styles.secondaryButton}
               >
@@ -179,7 +260,10 @@ function FateDeck() {
         <div style={styles.section}>
           <div style={styles.topNav}>
             <button
-              onClick={() => setScreen("landing")}
+              onClick={() => {
+                setSelectedDeckCard(null);
+                setScreen("landing");
+              }}
               className="magic-button"
               style={styles.homeButton}
             >
@@ -189,26 +273,62 @@ function FateDeck() {
 
           <h1 style={styles.sectionTitle}>The Fate Deck</h1>
           <p style={styles.deckSubtitle}>
-            Explore the symbols and entities that shape the currents of fate.
+            Click a card to inspect it more closely.
           </p>
 
           <div className="deck-grid">
-            {tarotCards.map((card) => (
-              <div key={card.id} style={styles.cardPreview}>
-                <img src={card.image} alt={card.name} style={styles.smallCard} />
-                <p style={styles.cardLabel}>{card.name}</p>
-                <p style={styles.deckMeaning}>{card.meaning}</p>
-              </div>
-            ))}
+            {tarotCards.map((card) => {
+              const isSelected = selectedDeckCard?.id === card.id;
+
+              return (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => openDeckCard(card)}
+                  className={`deck-card-hover ${isSelected ? "deck-card-selected" : ""}`}
+                  style={styles.deckCardButton}
+                >
+                  <img src={card.image} alt={card.name} style={styles.smallCard} />
+                </button>
+              );
+            })}
           </div>
 
           <button
-            onClick={() => setScreen("landing")}
+            onClick={() => {
+              setSelectedDeckCard(null);
+              setScreen("landing");
+            }}
             className="magic-button"
             style={styles.button}
           >
             Return
           </button>
+
+          {selectedDeckCard && (
+            <div style={styles.deckModalOverlay} onClick={closeDeckCard}>
+              <div style={styles.deckModalCard} onClick={(e) => e.stopPropagation()}>
+                <img
+                  src={selectedDeckCard.image}
+                  alt={selectedDeckCard.name}
+                  style={styles.deckZoomCard}
+                />
+
+                <div style={styles.deckInfoText}>
+                  <h2 style={styles.deckInfoTitle}>{selectedDeckCard.name}</h2>
+                  <p style={styles.deckInfoDescription}>{selectedDeckCard.meaning}</p>
+
+                  <button
+                    onClick={closeDeckCard}
+                    className="magic-button"
+                    style={styles.button}
+                  >
+                    Close Card
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -246,6 +366,7 @@ function FateDeck() {
                 {savedReadings.map((entry) => (
                   <div key={entry.id} style={styles.savedCard}>
                     <p style={styles.savedDate}>{entry.createdAt}</p>
+                    <p style={styles.savedZodiac}>Zodiac: {entry.zodiac || "Unknown"}</p>
                     <h3 style={styles.savedQuestion}>{entry.question}</h3>
 
                     <div style={styles.savedMiniRow}>
@@ -320,6 +441,7 @@ function FateDeck() {
           </div>
 
           <h1 style={styles.sectionTitle}>Your Cards</h1>
+          <p style={styles.readingCount}>Zodiac: {selectedZodiac}</p>
 
           <div className="reveal-row">
             {drawnCards.map((card, index) => (
@@ -366,6 +488,7 @@ function FateDeck() {
           <p style={styles.readingCount}>
             Card {currentCardIndex + 1} of {drawnCards.length}
           </p>
+          <p style={styles.readingCount}>Zodiac: {selectedZodiac}</p>
 
           <img src={currentCard.image} alt={currentCard.name} style={styles.largeCard} />
 
@@ -376,11 +499,35 @@ function FateDeck() {
               <strong>Your question:</strong> {question}
             </p>
             <p>
+              <strong>Zodiac sign:</strong> {selectedZodiac}
+            </p>
+
+            <div style={styles.zodiacTraitsBox}>
+              <div style={styles.traitsColumn}>
+                <h4 style={styles.traitsHeading}>Zodiac Strengths</h4>
+                <ul style={styles.traitsList}>
+                  {zodiacProfiles[selectedZodiac].strengths.map((trait) => (
+                    <li key={trait}>{trait}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div style={styles.traitsColumn}>
+                <h4 style={styles.traitsHeading}>Zodiac Weaknesses</h4>
+                <ul style={styles.traitsList}>
+                  {zodiacProfiles[selectedZodiac].weaknesses.map((trait) => (
+                    <li key={trait}>{trait}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <p>
               <strong>Card meaning:</strong> {currentCard.meaning}
             </p>
 
             <div style={styles.aiBlock}>
-              <h3 style={styles.aiHeading}>AI Reading</h3>
+              <h3 style={styles.aiHeading}>Personalized Reading</h3>
               <p>{reading}</p>
             </div>
 
@@ -412,6 +559,20 @@ function FateDeck() {
           </div>
         </div>
       )}
+      {transitioning && (
+        <div style={styles.transitionOverlay}>
+          <video
+            key={transitionKey}
+            autoPlay
+            muted
+            playsInline
+            onEnded={handleTransitionEnd}
+            style={styles.transitionVideo}
+          >
+            <source src={transitionSrc} type="video/mp4" />
+          </video>
+        </div>
+      )}
     </div>
   );
 }
@@ -423,6 +584,75 @@ const styles = {
     background: "#03131d",
     color: "white",
     textAlign: "center",
+  },
+
+  transitionOverlay: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    background: "#000",
+    pointerEvents: "all",
+  },
+
+  transitionVideo: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+
+  welcomeOverlay: {
+    position: "absolute",
+    inset: 0,
+    background: "rgba(0, 10, 20, 0.5)",
+    zIndex: 1,
+  },
+
+  welcomeContent: {
+    position: "relative",
+    zIndex: 2,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "20px",
+    padding: "20px",
+    animation: "fadeInUp 1.2s ease forwards",
+  },
+
+  welcomeSymbol: {
+    fontSize: "2.4rem",
+    color: "rgba(155, 231, 255, 0.75)",
+    textShadow: "0 0 24px rgba(90, 220, 255, 0.55)",
+  },
+
+  welcomeTitle: {
+    fontSize: "clamp(4rem, 10vw, 8rem)",
+    fontWeight: "700",
+    letterSpacing: "0.06em",
+    color: "white",
+    margin: 0,
+    textShadow: "0 0 48px rgba(90, 220, 255, 0.3), 0 4px 32px rgba(0, 0, 0, 0.6)",
+  },
+
+  welcomeSubtitle: {
+    fontSize: "clamp(1rem, 2vw, 1.25rem)",
+    color: "#d8e6ea",
+    letterSpacing: "0.12em",
+    margin: 0,
+    opacity: 0.8,
+  },
+
+  welcomeButton: {
+    marginTop: "10px",
+    padding: "16px 56px",
+    fontSize: "1.05rem",
+    fontWeight: "600",
+    letterSpacing: "0.12em",
+    borderRadius: "50px",
+    border: "1.5px solid rgba(120, 220, 255, 0.55)",
+    background: "rgba(8, 30, 45, 0.72)",
+    color: "white",
+    cursor: "pointer",
+    backdropFilter: "blur(10px)",
   },
 
   landingPage: {
@@ -461,7 +691,7 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: "18px",
+    gap: "14px",
     width: "100%",
     padding: "0 20px",
   },
@@ -502,6 +732,20 @@ const styles = {
     fontSize: "1.1rem",
     color: "#d8e6ea",
     marginBottom: "36px",
+  },
+
+  select: {
+    width: "100%",
+    maxWidth: "680px",
+    padding: "16px 18px",
+    borderRadius: "16px",
+    border: "2px solid rgba(120,220,255,.45)",
+    background: "rgba(8,30,45,.82)",
+    color: "white",
+    fontSize: "1rem",
+    boxShadow: "0 0 16px rgba(90,220,255,.18), 0 0 28px rgba(0,0,0,.2)",
+    outline: "none",
+    backdropFilter: "blur(8px)",
   },
 
   input: {
@@ -563,6 +807,13 @@ const styles = {
     textAlign: "center",
   },
 
+  deckCardButton: {
+    background: "transparent",
+    border: "none",
+    padding: 0,
+    cursor: "pointer",
+  },
+
   cardLabel: {
     marginTop: "12px",
     fontSize: "1.05rem",
@@ -591,10 +842,62 @@ const styles = {
     boxShadow: "0 12px 36px rgba(0,0,0,0.4)",
   },
 
+  deckModalOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.52)",
+    backdropFilter: "blur(6px)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: "24px",
+    zIndex: 1000,
+  },
+
+  deckModalCard: {
+    width: "100%",
+    maxWidth: "1000px",
+    background: "rgba(8,32,48,0.72)",
+    backdropFilter: "blur(4px)",
+    transition: "transform 180ms ease, box-shadow 180ms ease, background 180ms ease",
+    borderRadius: "22px",
+    padding: "28px",
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: "28px",
+    boxShadow: "0 24px 80px rgba(0,0,0,.55)",
+  },
+
+  deckZoomCard: {
+    width: "min(32vw, 360px)",
+    minWidth: "240px",
+    borderRadius: "18px",
+    boxShadow: "0 24px 60px rgba(0,0,0,.45)",
+  },
+
+  deckInfoText: {
+    maxWidth: "420px",
+    textAlign: "left",
+  },
+
+  deckInfoTitle: {
+    fontSize: "2rem",
+    marginBottom: "14px",
+  },
+
+  deckInfoDescription: {
+    fontSize: "1.05rem",
+    lineHeight: "1.7",
+    color: "#d8e6ea",
+    marginBottom: "18px",
+  },
+
   readingCount: {
     fontSize: "1rem",
     color: "#d8e6ea",
-    marginBottom: "24px",
+    marginBottom: "10px",
   },
 
   readingCardTitle: {
@@ -611,6 +914,37 @@ const styles = {
     background: "rgba(255,255,255,0.08)",
     borderRadius: "16px",
     lineHeight: "1.7",
+  },
+
+  zodiacTraitsBox: {
+    display: "flex",
+    gap: "24px",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    margin: "18px 0",
+    textAlign: "left",
+  },
+
+  traitsColumn: {
+    flex: "1 1 280px",
+    minWidth: "260px",
+    background: "rgba(255,255,255,0.05)",
+    borderRadius: "14px",
+    padding: "16px 18px",
+  },
+
+  traitsHeading: {
+    marginTop: 0,
+    marginBottom: "10px",
+    fontSize: "1rem",
+    color: "#9be7ff",
+  },
+
+  traitsList: {
+    margin: 0,
+    paddingLeft: "20px",
+    lineHeight: "1.8",
+    color: "#d8e6ea",
   },
 
   aiBlock: {
@@ -655,6 +989,13 @@ const styles = {
     color: "#a7c9d4",
     fontSize: ".95rem",
     marginBottom: "10px",
+  },
+
+  savedZodiac: {
+    color: "#9be7ff",
+    fontSize: ".95rem",
+    marginBottom: "10px",
+    fontWeight: "600",
   },
 
   savedQuestion: {
