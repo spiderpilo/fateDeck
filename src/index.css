@@ -29,15 +29,59 @@ input {
   padding: 0;
 }
 
+.magic-button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    filter 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.magic-button:hover {
+  transform: scale(1.06);
+  filter: brightness(1.08);
+  box-shadow:
+    0 0 18px rgba(90, 220, 255, 0.25),
+    0 0 34px rgba(90, 220, 255, 0.18);
+}
+
+.magic-button:active {
+  transform: scale(0.98);
+}
+
+.magic-button::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.magic-button:hover::before {
+  left: 140%;
+}
+
 .reveal-row {
   width: 100%;
-  max-width: 1400px;
+  min-height: 62vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  gap: clamp(18px, 3vw, 40px);
-  flex-wrap: wrap;
-  margin-bottom: 30px;
+  align-items: center;
+  gap: clamp(40px, 5vw, 90px);
+  flex-wrap: nowrap;
+  margin-top: 20px;
+  margin-bottom: 40px;
 }
 
 .deal-card {
@@ -72,5 +116,130 @@ input {
   100% {
     opacity: 1;
     transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 56px;
+  width: 100%;
+  max-width: 1800px;
+  margin: 50px auto;
+  padding: 20px 40px 40px;
+}
+
+.shuffle-stage {
+  position: relative;
+  width: 340px;
+  height: 260px;
+  margin-top: 20px;
+}
+
+.shuffle-card {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  width: 160px;
+  height: 230px;
+  border-radius: 16px;
+  transform-origin: center center;
+  background: linear-gradient(135deg, #113246 0%, #0b2030 45%, #17465e 100%);
+  border: 2px solid rgba(255, 215, 140, 0.5);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.06);
+}
+
+.shuffle-card::before {
+  content: "";
+  position: absolute;
+  inset: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 215, 140, 0.35);
+}
+
+.shuffle-card::after {
+  content: "✦";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+  color: rgba(255, 230, 180, 0.85);
+  text-shadow: 0 0 12px rgba(100, 220, 255, 0.35);
+}
+
+.shuffle-card-1 {
+  animation: shuffleOne 1.5s ease-in-out infinite;
+}
+
+.shuffle-card-2 {
+  animation: shuffleTwo 1.5s ease-in-out infinite;
+}
+
+.shuffle-card-3 {
+  animation: shuffleThree 1.5s ease-in-out infinite;
+}
+
+@keyframes shuffleOne {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0) rotate(-14deg);
+    z-index: 1;
+  }
+  33% {
+    transform: translateX(-105%) translateY(-8px) rotate(-22deg);
+    z-index: 3;
+  }
+  66% {
+    transform: translateX(-20%) translateY(8px) rotate(-8deg);
+    z-index: 2;
+  }
+}
+
+@keyframes shuffleTwo {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(-6px) rotate(0deg);
+    z-index: 3;
+  }
+  33% {
+    transform: translateX(-50%) translateY(8px) rotate(6deg);
+    z-index: 1;
+  }
+  66% {
+    transform: translateX(-50%) translateY(-10px) rotate(-4deg);
+    z-index: 3;
+  }
+}
+
+@keyframes shuffleThree {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(0) rotate(14deg);
+    z-index: 2;
+  }
+  33% {
+    transform: translateX(5%) translateY(8px) rotate(22deg);
+    z-index: 2;
+  }
+  66% {
+    transform: translateX(-78%) translateY(-8px) rotate(10deg);
+    z-index: 3;
+  }
+}
+
+@media (max-width: 900px) {
+  .reveal-row {
+    flex-wrap: wrap;
+    min-height: auto;
+    gap: 28px;
+  }
+
+  .deck-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 28px;
+    padding: 10px;
   }
 }
