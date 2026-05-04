@@ -63,7 +63,7 @@ function FateDeck() {
   }, [savedReadings]);
 
   const fetchReadingForCard = async (card) => {
-    const response = await fetch("http://localhost:3001/api/tarot-reading", {
+    const response = await fetch("/api/tarot-reading", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
